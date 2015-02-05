@@ -7,7 +7,7 @@ class interferenceGraph:
     __theGraph = {} #`VarNode => set([adjacent VarNodes])
     __ir = []
     __registers = [Register('ecx'),Register('edx'),Register('eax')]
-    __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx'}
+    __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
     __stackOffset = 4
 
     def __init__(self,IR):
@@ -119,7 +119,7 @@ class interferenceGraph:
                 return False
             for operand in instruction.operandList:
                 if  isinstance(operand,VarNode) and isinstance(operand.color,int):
-                    if (operand.color <= 4):
+                    if (operand.color <= 6):
                         operand.color = "%"+str(self.__listColors.get(operand.color))
                     else:
                         operand.color = "-"+str(self.__listColors.get(operand.color))+"(%ebp)"
@@ -129,7 +129,7 @@ class interferenceGraph:
         for node in self.__theGraph:
             node.color=-1
     def __resetColorList(self):
-        self.__listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx'}
+        self.__listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
     def __calculateLiveSets(self):
         previousLiveSet = set()
         for instruction in reversed(self.__ir):
@@ -138,7 +138,7 @@ class interferenceGraph:
         spillFlag = False
         for instruction in self.__ir:
             if instruction.numOperands == 2 and isinstance(instruction.operandList[0], VarNode) and isinstance(instruction.operandList[1], VarNode):
-                if instruction.operandList[0].color > 4 and instruction.operandList[1].color > 4:
+                if instruction.operandList[0].color > 6 and instruction.operandList[1].color > 6:
                     # spill code
                     if isinstance(instruction, Movl):
                         secondArg = instruction.operandList[1]
