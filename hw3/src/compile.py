@@ -5,23 +5,31 @@ import compiler
 import sys
 import string
 from python_ast import *
-from translate import *
-from my_parser import *
+from x86Selector import *
+from interferenceGraph import *
 
-debug = False
-if(len(sys.argv) > 2):
-    if(sys.argv[2] == '-debug'):
-       debug = True
+class myCompiler:
+    mygraph = None
+    def __init__(self, codefile):
+        flatAST = python_ast().flatten(compiler.parseFile(codefile))
+        x86IR = x86Selector(flatAST)
+        self.my_graph = interferenceGraph(x86IR.getIR())
+        #self.my_graph.drawEdges()
+        #self.my_graph.doColor()
+        #print my_graph.printGraph()
+        #x86IRObj.setIR(self.my_graph.getIR())
+        self.my_graph.allocateRegisters()
 
-myfile = sys.argv[1] 
-ast = my_parser().parseFile(myfile)
-# ast = compiler.parseFile(myfile)
-flatAST = python_ast().flatten(ast)
+    def getColored(self):
+        return ".globl main\nmain:\n"+self.my_graph.emitColoredIR()+"\tleave\n\tret\n"
+        #print x86IRObj.emitx86Text()
 
-x86code = translate(flatAST)
+if __name__=="__main__":
+    myfile = sys.argv[1] 
+    compiledObj = myCompiler(myfile)
 
-# save the generated assembly code to FILENAME.s
-basename = myfile[:len(myfile)-3]
-file = open(basename+".s","w")
-file.write(x86code.get_generated_code())
-file.close()
+    # save the generated assembly code to FILENAME.s
+    basename = myfile[:len(myfile)-3]
+    file = open(basename+".s","w")
+    file.write(compiledObj.getColored())
+    file.close()
