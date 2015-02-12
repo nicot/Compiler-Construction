@@ -6,8 +6,9 @@ import Queue
 class interferenceGraph:
     __theGraph = {} #`VarNode => set([adjacent VarNodes])
     __ir = []
-    __registers = [Register('ecx'),Register('edx'),Register('eax')]
-    __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
+    __registers = [Register('ecx'),Register('edx'),Register('eax')] # the caller-save registers
+   # __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
+    __listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx'), 5:Register('esi'), 6:Register('edi')}
     __stackOffset = 4
 
     def __init__(self,IR):
@@ -59,7 +60,7 @@ class interferenceGraph:
         for element in self.__ir:
             if isinstance(element, Movl) and isinstance(element.operandList[0], VarNode) and isinstance(element.operandList[1], VarNode):
                 if element.operandList[0].color == element.operandList[1].color:
-                    #print str(element.operandList[0].color) + "," + str(element.operandList[1].color)
+                    #print str(element.operandList[0]) + "," + str(element.operandList[1].color)
                     continue
             myCopy.append(element)
         return myCopy
