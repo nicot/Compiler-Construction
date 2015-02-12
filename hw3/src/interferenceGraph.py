@@ -57,10 +57,19 @@ class interferenceGraph:
     def __reduceDupicateMoves(self):
         myCopy = []
         for element in self.__ir:
-            if isinstance(element, Movl) and isinstance(element.operandList[0], VarNode) and isinstance(element.operandList[1], VarNode):
-                if element.operandList[0].color == element.operandList[1].color:
-                    #print str(element.operandList[0]) + "," + str(element.operandList[1].color)
-                    continue
+            if isinstance(element, Movl):
+                if isinstance(element.operandList[0], VarNode) and isinstance(element.operandList[1], VarNode):
+                    if self.__listColors[element.operandList[0].color] == self.__listColors[element.operandList[1].color]:                    
+                        continue
+                # need to make sure we reduce moves between explicit registers and VarNodes that fall through the above check
+                if isinstance(element.operandList[0], Register) and isinstance(element.operandList[1], VarNode): 
+                    element.operandList[0].color =[ key for key,value in self.__listColors.items() if value == element.operandList[0].myRegister][0]   
+                    if self.__listColors[element.operandList[0].color] == self.__listColors[element.operandList[1].color]:                    
+                        continue
+                if isinstance(element.operandList[1], Register) and isinstance(element.operandList[0], VarNode):
+                    element.operandList[1].color =[ key for key,value in self.__listColors.items() if value == element.operandList[1].myRegister][0]   
+                    if self.__listColors[element.operandList[1].color] == self.__listColors[element.operandList[0].color]:                    
+                        continue
             myCopy.append(element)
         return myCopy
 
