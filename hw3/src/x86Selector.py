@@ -75,7 +75,6 @@ class x86Selector:
         elif isinstance(ast, CallFunc):
             # CallFunc always refers to an input() in P0
             self.__ir.append(x86.Call('input'))
-            #self.__ir.append(x86.Movl(x86.VarNode('eax'),self.makeTmpVar()))
             self.__ir.append(x86.Movl(x86.Register('eax'),self.makeTmpVar()))
             return
 	elif isinstance(ast, Printnl):
