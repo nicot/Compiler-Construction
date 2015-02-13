@@ -64,8 +64,8 @@ class x86(object):
         self.instruction = ""
         self.operandList = []
         self.liveSetBefore = set()
-    def __eq__(self,other):
-        return (self.instruction == other.instruction and self.operandList == other.operandList)
+    # def __eq__(self,other):
+    #     return (self.instruction == other.instruction and self.operandList == other.operandList)
     def isFullyColored(self):
         for node in self.operandList:
             if (node.isColored == False):

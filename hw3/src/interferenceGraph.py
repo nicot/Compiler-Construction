@@ -7,7 +7,8 @@ class interferenceGraph:
     __theGraph = {} #`VarNode => set([adjacent VarNodes])
     __ir = []
     __registers = [Register('ecx'),Register('edx'),Register('eax')] # the caller-save registers
-    __listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx'), 5:Register('esi'), 6:Register('edi')}
+    #__listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx')}
+    __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
     __stackOffset = 4
 
     def __init__(self,IR):
@@ -23,10 +24,9 @@ class interferenceGraph:
             self.__theGraph[reg] = set()
 
     def insertEdge(self, node1, node2):
-        if not ((isinstance(node1, VarNode) or isinstance(node1, Register)) and (isinstance(node2, VarNode) or isinstance(node2, Register))):
-            return
-        self.__theGraph[node1] = self.__theGraph[node1] | set([node2])
-        self.__theGraph[node2] = self.__theGraph[node2] | set([node1])
+        if ((isinstance(node1, VarNode) or isinstance(node1, Register)) and (isinstance(node2, VarNode) or isinstance(node2, Register))):  
+            self.__theGraph[node1] = set(self.__theGraph[node1] | set([node2]))
+            self.__theGraph[node2] = set(self.__theGraph[node2] | set([node1]))
     def getIR(self):
         return self.__ir
     def insertNode(self, node):
@@ -48,7 +48,8 @@ class interferenceGraph:
                     self.insertEdge(iterAfter, node.operandList[0])
             elif (isinstance(node, Addl) or isinstance(node, Subl)) and node.operandList[1] in node.liveSetAfter:
                 for iterAfter in node.liveSetAfter:
-                    self.insertEdge(iterAfter, node.operandList[1])
+                    if not iterAfter == node.operandList[1]:
+                        self.insertEdge(iterAfter, node.operandList[1])
             elif isinstance(node, Call):
                 for iterAfter in node.liveSetAfter:
                     for reg in self.__registers:
@@ -59,22 +60,22 @@ class interferenceGraph:
         for element in self.__ir:
             if isinstance(element, Movl):
                 if isinstance(element.operandList[0], VarNode) and isinstance(element.operandList[1], VarNode):
-                    if self.__listColors[element.operandList[0].color] == self.__listColors[element.operandList[1].color]:                    
+                    if element.operandList[0].color == element.operandList[1].color:
                         continue
                 # need to make sure we reduce moves between explicit registers and VarNodes that fall through the above check
                 if isinstance(element.operandList[0], Register) and isinstance(element.operandList[1], VarNode): 
-                    element.operandList[0].color =[ key for key,value in self.__listColors.items() if value == element.operandList[0].myRegister][0]   
-                    if self.__listColors[element.operandList[0].color] == self.__listColors[element.operandList[1].color]:                    
+                    element.operandList[0].color = [ key for key,value in self.__listColors.items() if value == element.operandList[0].myRegister][0]   
+                    if self.__listColors[element.operandList[0].color] == self.__listColors[element.operandList[1].color]:  
                         continue
                 if isinstance(element.operandList[1], Register) and isinstance(element.operandList[0], VarNode):
-                    element.operandList[1].color =[ key for key,value in self.__listColors.items() if value == element.operandList[1].myRegister][0]   
+                    element.operandList[1].color =[ key for key,value in self.__listColors.items() if value == element.operandList[1].myRegister][1]   
                     if self.__listColors[element.operandList[1].color] == self.__listColors[element.operandList[0].color]:                    
                         continue
             myCopy.append(element)
         return myCopy
 
     def printGraph(self):
-        myString = ""
+        myString = ""        
         for node in self.__theGraph.keys():
             myString = myString + str(node) + "--> [" + ','.join([str(node_connection) for node_connection in self.__theGraph[node]]) + "]\n"
         return myString
@@ -86,8 +87,10 @@ class interferenceGraph:
     def calcAvailColors(self, node):
         adjColors = set()
         for neighbor in self.__theGraph[node]:
+
             adjColors = adjColors | set([neighbor.color])
         return set(self.__listColors.keys()) - adjColors
+
     def updateAdjSaturation(self, node):
         for neighbor in self.__theGraph[node]:
             neighbor.saturation = len(self.calcAvailColors(neighbor))
@@ -104,9 +107,8 @@ class interferenceGraph:
         while not toColor.empty():
             adjColors = set([])
             node = toColor.get()
-            # find lowest color not in adjacent nodes, if none create on stack
+            # find lowest color not in adjacent nodes, if none create on stack            
             availableColors = self.calcAvailColors(node)
-            
             if len(availableColors) == 0:
                 # add stack slot
                 new_key = len(self.__listColors) + 1
@@ -115,10 +117,10 @@ class interferenceGraph:
                 node.color = new_key
             else:
                 colorList = [ color_key for color_key in availableColors ]
-                colorList.sort()
+                colorList.sort()                
                 node.color = colorList[0]
             self.updateAdjSaturation(node)
-            toColor = self.__rebuildPriorityQueue(toColor)
+            #toColor = self.__rebuildPriorityQueue(toColor)
         self.__ir = self.__reduceDupicateMoves()
 
     def emitColoredIR(self):
@@ -130,7 +132,7 @@ class interferenceGraph:
                 if  isinstance(operand,VarNode) and isinstance(operand.color,int):
                     if (operand.color <= 6):
                         operand.color = "%"+str(self.__listColors.get(operand.color))
-                    else:
+                    else:                   
                         operand.color = "-"+str(self.__listColors.get(operand.color))+"(%ebp)"
             myString += "\t"+str(instruction)+"\n"
         return myString
@@ -143,6 +145,7 @@ class interferenceGraph:
         previousLiveSet = set()
         for instruction in reversed(self.__ir):
             previousLiveSet = instruction.doCalculateLiveSet(previousLiveSet)
+        return previousLiveSet
     def __spillAnalysis(self):
         spillFlag = False
         for instruction in self.__ir:
@@ -151,7 +154,7 @@ class interferenceGraph:
                     # spill code
                     if isinstance(instruction, Movl):
                         secondArg = instruction.operandList[1]
-                        instruction.operandList[1] = VarNode("{__spillSaver")
+                        instruction.operandList[1] = VarNode("{__spillSaver")                
                         instruction.operandList[1].spillable = False
                         newInstruction = Movl(instruction.operandList[1], secondArg)
                         self.__ir.insert(self.__ir.index(instruction)+1, newInstruction)
@@ -165,7 +168,7 @@ class interferenceGraph:
             self.__resetColorList()
             self.__calculateLiveSets()
             self.drawEdges()
-            self.doColor()
+            self.doColor()  
             __spilled = self.__spillAnalysis()
             if not __spilled:
                 break
