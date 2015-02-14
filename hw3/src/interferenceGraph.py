@@ -7,8 +7,8 @@ class interferenceGraph:
     __theGraph = {} #`VarNode => set([adjacent VarNodes])
     __ir = []
     __registers = [Register('ecx'),Register('edx'),Register('eax')] # the caller-save registers
-    #__listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx'),5:Register('esi'),6:Register('edi')}
-    __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
+    __listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx'),5:Register('esi'),6:Register('edi')}
+    #__listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
     __stackOffset = 4
 
     def __init__(self,IR):
@@ -25,8 +25,8 @@ class interferenceGraph:
 
     def insertEdge(self, node1, node2):
         if ((isinstance(node1, VarNode) or isinstance(node1, Register)) and (isinstance(node2, VarNode) or isinstance(node2, Register))):  
-            self.__theGraph[node1] = self.__theGraph[node1] | set([node2])
-            self.__theGraph[node2] = self.__theGraph[node2] | set([node1])
+            self.__theGraph[node1] = set(self.__theGraph[node1] | set([node2]))
+            self.__theGraph[node2] = set(self.__theGraph[node2] | set([node1]))
     def getIR(self):
         return self.__ir
     def insertNode(self, node):
@@ -67,10 +67,10 @@ class interferenceGraph:
                     element.operandList[0].color = [ key for key,value in self.__listColors.items() if value == element.operandList[0].myRegister][0]   
                     if element.operandList[0].color == element.operandList[1].color:  
                         continue
-                elif isinstance(element.operandList[1], Register) and isinstance(element.operandList[0], VarNode):
-                    element.operandList[1].color =[ key for key,value in self.__listColors.items() if value == element.operandList[1].myRegister][1]   
-                    if element.operandList[1].color == element.operandList[0].color:                    
-                        continue
+                # if isinstance(element.operandList[1], Register) and isinstance(element.operandList[0], VarNode):
+                #     element.operandList[1].color =[ key for key,value in self.__listColors.items() if value == element.operandList[1].myRegister][1]   
+                #     if element.operandList[1].color == element.operandList[0].color:                    
+                #         continue
             myCopy.append(element)
         return myCopy
 
