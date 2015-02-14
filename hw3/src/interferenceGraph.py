@@ -7,7 +7,7 @@ class interferenceGraph:
     __theGraph = {} #`VarNode => set([adjacent VarNodes])
     __ir = []
     __registers = [Register('ecx'),Register('edx'),Register('eax')] # the caller-save registers
-    #__listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx')}
+    #__listColors = {1:Register('eax'),2:Register('ebx'),3:Register('ecx'),4:Register('edx'),5:Register('esi'),6:Register('edi')}
     __listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx', 5:'esi', 6:'edi'}
     __stackOffset = 4
 
@@ -25,8 +25,8 @@ class interferenceGraph:
 
     def insertEdge(self, node1, node2):
         if ((isinstance(node1, VarNode) or isinstance(node1, Register)) and (isinstance(node2, VarNode) or isinstance(node2, Register))):  
-            self.__theGraph[node1] = set(self.__theGraph[node1] | set([node2]))
-            self.__theGraph[node2] = set(self.__theGraph[node2] | set([node1]))
+            self.__theGraph[node1] = self.__theGraph[node1] | set([node2])
+            self.__theGraph[node2] = self.__theGraph[node2] | set([node1])
     def getIR(self):
         return self.__ir
     def insertNode(self, node):
@@ -63,13 +63,13 @@ class interferenceGraph:
                     if element.operandList[0].color == element.operandList[1].color:
                         continue
                 # need to make sure we reduce moves between explicit registers and VarNodes that fall through the above check
-                if isinstance(element.operandList[0], Register) and isinstance(element.operandList[1], VarNode): 
+                elif isinstance(element.operandList[0], Register) and isinstance(element.operandList[1], VarNode):                     
                     element.operandList[0].color = [ key for key,value in self.__listColors.items() if value == element.operandList[0].myRegister][0]   
-                    if self.__listColors[element.operandList[0].color] == self.__listColors[element.operandList[1].color]:  
+                    if element.operandList[0].color == element.operandList[1].color:  
                         continue
-                if isinstance(element.operandList[1], Register) and isinstance(element.operandList[0], VarNode):
+                elif isinstance(element.operandList[1], Register) and isinstance(element.operandList[0], VarNode):
                     element.operandList[1].color =[ key for key,value in self.__listColors.items() if value == element.operandList[1].myRegister][1]   
-                    if self.__listColors[element.operandList[1].color] == self.__listColors[element.operandList[0].color]:                    
+                    if element.operandList[1].color == element.operandList[0].color:                    
                         continue
             myCopy.append(element)
         return myCopy
@@ -79,11 +79,7 @@ class interferenceGraph:
         for node in self.__theGraph.keys():
             myString = myString + str(node) + "--> [" + ','.join([str(node_connection) for node_connection in self.__theGraph[node]]) + "]\n"
         return myString
-    def __rebuildPriorityQueue(self, oldQueue):
-        newQueue = Queue.PriorityQueue()
-        while not oldQueue.empty():
-            newQueue.put(oldQueue.get())
-        return newQueue
+
     def calcAvailColors(self, node):
         adjColors = set()
         for neighbor in self.__theGraph[node]:
@@ -120,7 +116,6 @@ class interferenceGraph:
                 colorList.sort()                
                 node.color = colorList[0]
             self.updateAdjSaturation(node)
-            #toColor = self.__rebuildPriorityQueue(toColor)
         self.__ir = self.__reduceDupicateMoves()
 
     def emitColoredIR(self):
