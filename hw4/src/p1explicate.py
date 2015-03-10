@@ -1,10 +1,8 @@
 #!/usr/bin/python
 
-from p0flattener import *
+from MyFlattener import *
 from compiler import *
 from p1ast import *
-from astvisitor import *
-
 class P1Explicate(ASTVisitor):
 	# Private Variables: #########################################################################
 	_currentTmpVar = 0

@@ -51,20 +51,16 @@ if __name__ == "__main__":
  	to_explicate = compiler.parseFile(sys.argv[1])
  	to_explicate = P2Uniquify().visit(to_explicate)
  	to_heapify = P2Explicate().visit(to_explicate)
-        #print to_heapify
  	to_flatten = P2Closure().doClosure(to_heapify)
 
  	flattened = P2ASTFlattener().visit(to_flatten)
  	file = open(basename+".s","w")
 
-        #file.write(".globl main\nmain:\n"+ig.emitColoredIR()+"\tleave\n\tret\n")
-        #file.write(ig.emitColoredIR())
  	for func in flattened:
                 tmpIR = Myx86Selector().generate_x86_code(func)
                 ig = InterferenceGraph(tmpIR)
                 coloredIR=ig.allocateRegisters()
                 no_ifs = P1Removex86Ifs(coloredIR).removeIfs()
                 ig.setIR(no_ifs)
-                #file.write(".globl main\nmain:\n"+ig.emitColoredIR()+"\tleave\n\tret\n")
                 file.write(ig.emitColoredIR())
 	file.close()

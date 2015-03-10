@@ -16,18 +16,18 @@ class ASTVisitor(object):
 		print "Uh oh: A method doesn't exist for this node type: %s" % node.__class__.__name__
 
 class P2Uniquify(ASTVisitor):
-	# Private Attributes: #####################################################################################
+	# Private Attributes: #########
 	uniqueNameCounter = 0
-	# Private Functions: ######################################################################################
+	# Private Functions: ##########
 
-	#  Take a variable name that hasn't be renamed yet, and return
-	#			what it should be renamed to.
+	# Take a variable name that hasn't be renamed yet, and return
+	#	what it should be renamed to.
 	# Args:	A variable's name, as a string.
-	# Ret:	The variable's new uniquified name (as a string).
+	# Ret:	The variable's uniquified name (as a string).
 	def renameToUnique(self, curScopeDict, nameStr):
 		return curScopeDict[nameStr]
 
-	#  Add a list of local variables to the dictionary and generate
+	# Add a list of local variables to the dictionary and generate
 	#			a new uniquified name for them.
 	# Args:	A list of strings (variable names) and a dictionary with non unique names mapped to uniquified names.
 	# Ret:	Dictionary with the new uniquified names added. 
@@ -36,7 +36,7 @@ class P2Uniquify(ASTVisitor):
 			curScopeDict[var] = var+str(self.uniqueNameCounter)
 			self.uniqueNameCounter += 1
 
-	# Visitor Functions: #######################################################################################
+	# Visitor Functions: ##########
 
 	def visit_Lambda(self, ast, curScopeDict):
 		# Get all the variables in this scope and below that are local.
@@ -57,20 +57,29 @@ class P2Uniquify(ASTVisitor):
 		return ast
 
 	# To be called if there's a Stmt list nested inside a node that marks a scope change.
-	# passes a copy down so the subscopes don't modify the curScopeDict of the current scope.
+	# Instead of passing down curScopeDict, it passes a copy down so the subscopes don't
+	# modify the curScopeDict of the current scope.
 	def _visit_Stmt_Deepcopy(self, stmtNode, curScopeDict):
+		# Must iterate through the Stmt list and pass down a deepcopy of curScopeDict
+		# so that curScopeDict doesn't get modified by subscopes below.
 		new_stmt_list = []
 		for node in stmtNode.nodes:
 			new_stmt_list += [self.visit(node, copy.deepcopy(curScopeDict))]
 		return new_stmt_list
 
 	def visit_Function(self, ast, curScopeDict):
+		# Uniquify the function's name first, because this is actually in the outerscope.
 		ast.name = self.renameToUnique(curScopeDict, ast.name)
 		localVars = P2GetLocals().getLocals(ast)
 		self.uniquifyLocalNames(localVars, curScopeDict)
 		ast.localVars = [curScopeDict[value] for value in localVars]
+		#new_stmt_list = []
+		#for node in ast.code.nodes:
+		#	new_stmt_list += [self.visit(node, copy.deepcopy(curScopeDict))]
 		new_stmt_list = self._visit_Stmt_Deepcopy(ast.code, curScopeDict)
 		ast.code.nodes = new_stmt_list
+		# Can't write directly to argname (don't know why) so make a new
+		# argname_list and assign to ast.argnames
 		argname_list = []
 		for argname in ast.argnames:
 			argname_list  += [self.renameToUnique(curScopeDict, argname)]
@@ -81,6 +90,9 @@ class P2Uniquify(ASTVisitor):
 		localVars = P2GetLocals().getLocals(ast)
 		self.uniquifyLocalNames(localVars, curScopeDict)
 		ast.localVars = [curScopeDict[value] for value in localVars]
+		#new_stmt_list = []
+		#for node in ast.node.nodes:
+		#	new_stmt_list += [self.visit(node, copy.deepcopy(curScopeDict))]
 		new_stmt_list = self._visit_Stmt_Deepcopy(ast.node, curScopeDict)
 		ast.node.nodes = new_stmt_list
 		return ast
@@ -194,3 +206,20 @@ class P2Uniquify(ASTVisitor):
 				print '\t' * tabcount + 'EndFunc'
 			else:
 				print '\t' * (tabcount) + str(node)
+
+if __name__ == "__main__":
+	import sys 
+	import compiler
+	print '-' * 10 + 'Parsed AST' + '-' * 10
+	import os
+	import p1flattener
+	if os.path.isfile(sys.argv[1]):
+		print str(compiler.parseFile(sys.argv[1])) + '\n'
+		ast = compiler.parseFile(sys.argv[1])
+		P2Uniquify().visit(ast)
+	else:
+		print str(compiler.parse(sys.argv[1])) + '\n'
+		ast = compiler.parse(sys.argv[1])
+		P2Uniquify().visit(ast)
+	print '-' * 10 + 'Uniquified AST' + '-' * 10
+	P2Uniquify().print_ast(ast.node, 0)
