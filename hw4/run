@@ -24,25 +24,7 @@ if [ $# != 0 ]; then
 
 	# Note: WARNING MESSAGES ARE OFF
 	gcc -m32 -w "$NOEXT.s" $SRC_DIR/*.c -lm -o $EXE
-	if [ $? != 0 ]; then
-		echo "$NOEXT_BASE gcc compile failed!"		
-	fi
-
-	#Compare the output of the compiled filed to the
-	#output of the python interpreter
-	if [[ -e "$NOEXT.in" ]] ; then
-	    cat "$NOEXT.in" | $EXE > $EXE.a.out
-	    cat "$NOEXT.in" | python $FILE > $EXE.py.out
-	else
-	     $EXE > $EXE.a.out
-	     python $FILE > $EXE.py.out
-	fi
-	diff $EXE.a.out $EXE.py.out
-	if [ $? != 0 ]; then
-	    echo "$NOEXT_BASE failed!"		
-	else
-	    echo "$NOEXT_BASE passed!"	
-	fi
+	$EXE
     fi
     if [ -n $1 ]; then
 	TESTS_DIR="$TESTS_DIR/$1"
