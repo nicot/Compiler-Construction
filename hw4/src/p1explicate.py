@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from MyFlattener import *
+from p0flattener import *
 from compiler import *
 from p1ast import *
 class P1Explicate(ASTVisitor):
