@@ -1,5 +1,6 @@
 from x86 import * 
 import Queue
+from chaitincolorizer import *
 import copy
 class InterferenceGraph(object):
 	__theGraph = {} #`VarNode => set([adjacent VarNodes])
@@ -140,20 +141,29 @@ class InterferenceGraph(object):
 		#color caller-save register nodes (just in case)
 		for reg in self.__registers:
 			reg.color = [ key for key,value in self.__listColors.items() if value == reg.myRegister ][0]
+		#create priority queue of nodes and iterate
+		#nodesToColor = heappriorityqueue.HeapPriorityQueue(True)
                 toColor = Queue.PriorityQueue()
 		for node in self.__theGraph:
 			if isinstance(node,VarNode):
+				#nodesToColor.add_task(node.calculatePriority(),node)
                                 toColor.put(node)
 		while not toColor.empty():
 			adjacentColors = set([])
+			#node = nodesToColor.pop_task()
                         node = toColor.get()
 			#find lowest color not in adjacent nodes, if none create on stack
 			availableColors = self.calcAvailColors(node)
 			
 			if len(availableColors) == 0:
 				#add stack slot (new color)
+<<<<<<< HEAD
 				new_key = len(self.__listColors) + 1
 				self.__listColors[new_key] = self.__stackOffset
+=======
+				largest_key = len(self.__listColors) + 1  #actually, this is the new key
+				self.__listColors[largest_key] = self.__stackOffset
+>>>>>>> 75806f5e4a7666727b1cda346b11901027c9c298
 				self.__stackOffset = self.__stackOffset + 4
 				node.color = new_key
 			else:
@@ -161,6 +171,7 @@ class InterferenceGraph(object):
 				sortedColorsList.sort()
 				node.color = sortedColorsList[0]
 			self.updateSaturation(node)
+			#nodesToColor = self.__rebuildPriorityQueue(nodesToColor)
                 self.__ir = self.__reduceDuplicateMoves(self.__ir)
 	def emitColoredIR(self):
 		myString = ""
@@ -263,3 +274,46 @@ class InterferenceGraph(object):
 				break
 		return self.__ir
 
+
+if __name__ == "__main__":
+	import sys 
+	import compiler
+	import os
+	from p2uniquify import *
+	from p2explicate import *
+	from p2closure import *
+	from p2flattener import *
+	from Myx86Selector import *
+	print "-"*20 + "Parsed AST" + "-"*20 
+	if os.path.isfile(sys.argv[1]):
+		print compiler.parseFile(sys.argv[1])
+		to_explicate = compiler.parseFile(sys.argv[1])
+	else:
+		print compiler.parse(sys.argv[1])
+		to_explicate = compiler.parse(sys.argv[1])
+	print "-"*20 + "Uniquified AST" + "-"*20
+	to_explicate = P2Uniquify().visit(to_explicate)
+	P2Uniquify().print_ast(to_explicate.node)
+	print "-"*20 + "Explicated AST" + "-"*20
+	to_closure_convert = P2Explicate().visit(to_explicate)
+	P2Uniquify().print_ast(to_closure_convert.node)
+	(ast, fun_list) = P2Closure().visit(to_closure_convert)
+	print "-"*20 + "Global Func List" + "-"*20
+	P2Uniquify().print_ast(Stmt(fun_list)) 
+	print "-"*20 + "Closure Converted AST" + "-"*20
+	P2Uniquify().print_ast(ast.node)
+	print "-"*20 + "Final Func List" + "-"*20
+	to_flatten = P2Closure().doClosure(to_closure_convert)
+	P2Uniquify().print_ast(Stmt(to_flatten))
+	print "-"*20 + "Flattened Func List" + "-"*20
+	flattened = P2ASTFlattener().visit(to_flatten)
+	P2Uniquify().print_ast(Stmt(flattened))
+	print "-"*20 + "x86IR" + "-"*20
+	ir_list = []
+	for func in flattened:
+		ir_list += [Myx86Selector().generate_x86_code(func)]
+	for func in ir_list:
+		Myx86Selector().prettyPrint(func)
+	print "-"*20 + "x86IR Colored" + "-"*20
+	ir_list = InterferenceGraph(ir_list[0]).allocateRegFunc(ir_list)
+	Myx86Selector().prettyPrint(func)

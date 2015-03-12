@@ -63,6 +63,9 @@ class Myx86Selector:
 	def _makeLabel():
 		return 'label' + str(self._currentLabelNum)	
 
+    #TODO: Do something about this.
+	#def _encapsulate_generated_code(self):
+	#	self.__generated_code = ".globl main\nmain:\npushl %ebp\nmovl %esp, %ebp\nsubl $"+str(self.__stack_offset)+",%esp\n" + self.__generated_code + "movl $0, %eax\nleave\nret\n"
 	def generate_x86_code(self, ast):
 		myIRList = []
 		if isinstance(ast, Module):
@@ -86,6 +89,17 @@ class Myx86Selector:
 		
 			#handle closure first
 			counter = 8
+			#if len(ast.argnames) > 0:
+			#	counter = 12
+			#	closureList = ast.argnames[0]
+			#	ast.argnames = ast.argnames[1:]
+			#	subs_counter = 0
+			#	for closureElement in closureList.nodes:
+			#		myIRList.append(x86.Pushl(x86.ConstNode(subs_counter)))
+			#		myIRList.append(x86.Pushl(x86.MemLoc(8)))
+			#		myIRList.append(x86.Call('get_subscript'))
+			#		myIRList.append(x86.Movl(x86.Register('eax'),self._update_dict_vars(closureElement.name)))
+			#		subs_counter += 1
 			#move parameters to local location
 			for arg in ast.argnames:
 				myIRList.append(x86.Movl(x86.MemLoc(counter), self._update_dict_vars(arg)))	
@@ -99,7 +113,6 @@ class Myx86Selector:
 			myIRList.append(x86.Leave())
 			myIRList.append(x86.Ret())
 			return myIRList
-
 		elif isinstance(ast, CallUserDef):
 			myIRList = []
 			#push arguments
@@ -164,6 +177,8 @@ class Myx86Selector:
 			myIRList += self.generate_x86_code(ast.ops[0][1])
 			expr2 = self.getTmpVar()
 			newVar = self.makeTmpVar()
+			# ConstNode(5) == True with Bool tag applied ( 1 << 2 + 1 = 5)
+			# ConstNode(1) == False with Bool tag applied ( 0 << 2 + 1 = 1)
 			myIRList.append(x86.Ifx86([x86.Cmpl(expr,expr2)], [x86.Movl(x86.ConstNode(1), newVar)], [x86.Movl(x86.ConstNode(0), newVar)])) 
 			return myIRList
 		
@@ -205,8 +220,17 @@ class Myx86Selector:
 			myIRList.append(x86.Ifx86([x86.Cmpl(x86.ConstNode(1),x86.Register('eax'))],[x86.Movl(lExpr, resultVar)],self.generate_x86_code(ast.nodes[1]) + [x86.Movl(self.getTmpVar(), resultVar)]))
 			secondResultVar = self.makeTmpVar()
 			myIRList.append(x86.Movl(resultVar, secondResultVar))
+			#myIRList.append(x86.Ifx86([x86.Cmpl(x86.ConstNode(1),x86.Register('eax'))],[x86.Movl(lExpr, self.makeTmpVar())],self.generate_x86_code(ast.nodes[1]) + [x86.Movl(self.getTmpVar(), self.makeTmpVar())]))
 			return myIRList
-
+			##
+			#myIRList += self.generate_x86_code(ast.nodes[1])
+			#rExpr = self.getTmpVar()
+			#resultVar = self.makeTmpVar()
+			#myIRList.append(x86.Pushl(lExpr))
+			#myIRList.append(x86.Call('is_true'))
+			#myIRList.append(x86.Ifx86([x86.Cmpl(x86.ConstNode(1),x86.Register('eax'))], [x86.Movl(lExpr, resultVar)], [x86.Movl(rExpr, resultVar)]))
+			#myIRList.append(x86.Addl(x86.ConstNode(4), x86.Register('esp')))
+			#return myIRList
 		elif isinstance(ast, And):
 			myIRList += self.generate_x86_code(ast.nodes[0])
 			lExpr = self.getTmpVar()
@@ -218,7 +242,16 @@ class Myx86Selector:
 			secondResultVar = self.makeTmpVar()
 			myIRList.append(x86.Movl(resultVar, secondResultVar))
 			return myIRList
-
+			#myIRList += self.generate_x86_code(ast.nodes[0])
+			#lExpr = self.getTmpVar()
+			#myIRList += self.generate_x86_code(ast.nodes[1])
+			#rExpr = self.getTmpVar()
+			#resultVar = self.makeTmpVar()
+			#myIRList.append(x86.Pushl(lExpr))
+			#myIRList.append(x86.Call('is_true'))
+			#myIRList.append(x86.Ifx86([x86.Cmpl(x86.ConstNode(0),x86.Register('eax'))], [x86.Movl(lExpr, resultVar)], [x86.Movl(rExpr, resultVar)]))
+			#myIRList.append(x86.Addl(x86.ConstNode(4), x86.Register('esp')))
+			#return myIRList
 		elif isinstance(ast, ProjectTo):
 			myIRList += self.generate_x86_code(ast.arg)
 			argExpr = self.getTmpVar()
@@ -457,3 +490,47 @@ class Myx86Selector:
 				print "\t" * indents + "EndIf"
 			else:
 				print "\t" * indents + str(instruction)
+
+
+
+if __name__ == "__main__":
+	import sys 
+	import compiler
+	import os
+	from p2uniquify import *
+	from p2explicate import *
+	from p2heapify import *
+	from p2closure import *
+	print "-"*20 + "Parsed AST" + "-"*20 
+	if os.path.isfile(sys.argv[1]):
+		print compiler.parseFile(sys.argv[1])
+		to_explicate = compiler.parseFile(sys.argv[1])
+	else:
+		print compiler.parse(sys.argv[1])
+		to_explicate = compiler.parse(sys.argv[1])
+	print "-"*20 + "Uniquified AST" + "-"*20
+	to_explicate = P2Uniquify().visit(to_explicate)
+	P2Uniquify().print_ast(to_explicate.node)
+	print "-"*20 + "Explicated AST" + "-"*20
+	explicated = P2Explicate().visit(to_explicate)
+	P2Uniquify().print_ast(explicated.node)
+	print "-"* 20 + "Heapified AST" + "-"*20
+	heapified = P2Heapify().visit(explicated)
+	P2Heapify().print_ast(Stmt(heapified))	
+	print "-"*20 + "Global Func List" + "-"*20
+	(ast, fun_list) = P2Closure().visit(heapified)
+	P2Uniquify().print_ast(Stmt(fun_list)) 
+	print "-"*20 + "Closure Converted AST" + "-"*20
+	P2Uniquify().print_ast(ast.node)
+	print "-"*20 + "Final Func List" + "-"*20
+	to_flatten = P2Closure().doClosure(heapified)
+	P2Uniquify().print_ast(Stmt(to_flatten))
+	print "-"*20 + "Flattened Func List" + "-"*20
+	flattened = P2ASTFlattener().visit(to_flatten)
+	P2Uniquify().print_ast(Stmt(flattened))
+	print "-"*20 + "x86IR" + "-"*20
+	ir_list = []
+	for func in flattened:
+		ir_list += [Myx86Selector().generate_x86_code(func)]
+	for func in ir_list:
+		Myx86Selector().prettyPrint(func)

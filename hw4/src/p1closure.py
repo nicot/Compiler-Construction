@@ -3,7 +3,7 @@ from p2getfreevars import *
 from p1ast import *
 from p2ast import *
 from p2getlocals import *
-class P2Closure(ASTVisitor):
+class P1Closure(ASTVisitor):
 	# Private Attributes: ###################################################################################
 	_globalFunctionCounter = 0
 	_globalFVSCounter = 0
