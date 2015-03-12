@@ -43,8 +43,8 @@ class InterferenceGraph(object):
 			return
 		elif isinstance(node2, Register) and node2 not in self.__registers:
 			return
-		self.__theGraph[node1] = set(self.__theGraph[node1]) | set([node2])
-		self.__theGraph[node2] = set(self.__theGraph[node2]) | set([node1])
+		self.__theGraph[node1] = self.__theGraph[node1] | set([node2])
+		self.__theGraph[node2] = self.__theGraph[node2] | set([node1])
 	def getIR(self):
 		return self.__ir
 	def setIR(self,newIR):
@@ -59,6 +59,7 @@ class InterferenceGraph(object):
 			node.liveSetAfter = lAfter
 			lAfter=node.liveSetBefore
 	def drawEdges(self, myIR):
+		#self.__copylBeforeTolAfter(myIR)
 		for node in myIR:
 			if isinstance(node, Movl) and node.operandList[1] in node.liveSetAfter:
 				for iterlAfter in node.liveSetAfter:
@@ -67,10 +68,9 @@ class InterferenceGraph(object):
 			elif isinstance(node, Negl) and node.operandList[0] in node.liveSetAfter:
 				for iterlAfter in node.liveSetAfter:
 					self.insertEdge(iterlAfter,node.operandList[0])
-			elif isinstance(node, Addl) and node.operandList[1] in node.liveSetAfter:
+			elif ( isinstance(node, Addl) or isinstance(node, Subl) ) and node.operandList[1] in node.liveSetAfter:
 				for iterlAfter in node.liveSetAfter:
-                                        if not iterlAfter == node.operandList[1]:
-                                                self.insertEdge(iterlAfter,node.operandList[1])
+					self.insertEdge(iterlAfter,node.operandList[1])
 			elif isinstance(node, Call):
 				for iterlAfter in node.liveSetAfter:
 					for iterReg in self.__registers:
@@ -106,18 +106,14 @@ class InterferenceGraph(object):
 	def __reduceDuplicateMoves(self, irToReduce):
 		myCopy = []
 		for element in irToReduce:
-			if isinstance(element,Movl):
-                                if isinstance(element.operandList[0],VarNode) and isinstance(element.operandList[1],VarNode):
-                                        if element.operandList[0] == element.operandList[1]:
-                                                continue
-                                elif isinstance(element.operandList[0], Register) and isinstance(element.operandList[1], VarNode): 
-                                        element.operandList[0].color = [ key for key,value in self.__listColors.items() if value == element.operandList[0].myRegister][0] 
-                                        if element.operandList[0].color == element.operandList[1].color:  
-                                                continue
-                        if isinstance(element, Ifx86):
-                                for number in range(3):
-                                        element.operandList[number] = self.__reduceDuplicateMoves(element.operandList[number])
-                        myCopy.append(element)
+			if isinstance(element,Movl) and isinstance(element.operandList[0],VarNode) and isinstance(element.operandList[1],VarNode):
+				if element.operandList[0] == element.operandList[1]: #or ( not ( element.operandList[0].color == -1 or element.operandList[1].color == -1) and (element.operandList[0].color == element.operandList[1].color)):
+					#print str(element.operandList[0].color) + "," + str(element.operandList[1].color)
+					continue
+			if isinstance(element, Ifx86):
+				for number in range(3):
+					element.operandList[number] = self.__reduceDuplicateMoves(element.operandList[number])
+			myCopy.append(element)
 		return myCopy
 	def printGraph(self):
 		myString = ""
@@ -152,24 +148,20 @@ class InterferenceGraph(object):
 			adjacentColors = set([])
 			#node = nodesToColor.pop_task()
                         node = toColor.get()
-			#find lowest color not in adjacent nodes, if none create on stack
+			#find lowest color not in adjacent nodes (create one if needed -- this would be a stack location)
 			availableColors = self.calcAvailColors(node)
 			
 			if len(availableColors) == 0:
 				#add stack slot (new color)
-<<<<<<< HEAD
-				new_key = len(self.__listColors) + 1
-				self.__listColors[new_key] = self.__stackOffset
-=======
 				largest_key = len(self.__listColors) + 1  #actually, this is the new key
 				self.__listColors[largest_key] = self.__stackOffset
->>>>>>> 75806f5e4a7666727b1cda346b11901027c9c298
 				self.__stackOffset = self.__stackOffset + 4
-				node.color = new_key
+				node.color = largest_key
 			else:
 				sortedColorsList = [ color_key for color_key in availableColors ]
 				sortedColorsList.sort()
 				node.color = sortedColorsList[0]
+	
 			self.updateSaturation(node)
 			#nodesToColor = self.__rebuildPriorityQueue(nodesToColor)
                 self.__ir = self.__reduceDuplicateMoves(self.__ir)
@@ -194,13 +186,12 @@ class InterferenceGraph(object):
 	def __resetColorList(self):
 		self.__listColors = {1:'eax',2:'ebx',3:'ecx',4:'edx',5:'edi',6:'esi'}
 		self.__stackOffset = 4
-
+		#self.__stackOffset = 16
 	def __calculateLiveSets(self):
  		previousLiveSet = set()
  		for instruction in reversed(self.__ir):
  			previousLiveSet = instruction.doCalculateLiveSet(previousLiveSet)
 		self.__copylBeforeTolAfter(self.__ir)
-                
 	def __spillAnalysis(self, ir, alreadySpilled = False):
 		spillFlag = alreadySpilled
 		for instruction in ir:
@@ -223,10 +214,17 @@ class InterferenceGraph(object):
 				ir.insert(ir.index(instruction), newInstruction)	
 			if instruction.numOperands == 2 and isinstance(instruction.operandList[0],VarNode) and isinstance(instruction.operandList[1],VarNode):
 				if instruction.operandList[0].color > self.__regNum and instruction.operandList[1].color > self.__regNum:
-					# spill code
+					#insert spill code
+					# if isinstance(instruction, Movl):
+                                        #         secondArg = instruction.operandList[1]
+					# 	instruction.operandList[1] = VarNode(self.makeTmpVar())
+					# 	instruction.operandList[1].spillable = False
+					# 	newInstruction = Movl(instruction.operandList[1],secondArg)
+					# 	ir.insert(ir.index(instruction)+1,newInstruction)
+					# 	spillFlag =  True
 					if isinstance(instruction, Movl) or isinstance(instruction, Addl) or isinstance(instruction, Cmpl):
 						(spillFlag, newInstruction) = self._makeSpillCode(instruction)
-                                        spillFlag = True
+						spillFlag = True
 		#End For
 		return (spillFlag, ir)
 	def _makeSpillCode(self, badInstruction):
