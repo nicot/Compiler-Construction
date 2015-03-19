@@ -4,13 +4,13 @@ from p0flattener import *
 from compiler import *
 from p1ast import *
 class P1Explicate(ASTVisitor):
-	# Private Variables: #########################################################################
+	# Private Variables: 
 	_currentTmpVar = 0
 	_typeMap = {'int': Const(0),
 				'bool': Const(1),
 				'big' : Const(3) }
 	
-	# Private Methods: ###########################################################################
+	# Private Methods: 
 	def _makeTmpVar(self):
 		self._currentTmpVar += 1
 		return "exp_tmp" + str(self._currentTmpVar)
@@ -24,7 +24,7 @@ class P1Explicate(ASTVisitor):
 	def _compareEqType(self, lhs, rhs):
 		return InjectFrom(self._typeMap['bool'], IntegerCompare(InjectFrom(self._typeMap['int'], GetTag(lhs)), [('==', InjectFrom(self._typeMap['int'],rhs))]))
 
-	# Visitor Methods: ###########################################################################
+	# Visitor Methods:
 	def visit_Module(self, node):
 		newModule = Module(None, self.visit(node.node))
 		return newModule
@@ -156,10 +156,7 @@ class P1Explicate(ASTVisitor):
 		newNode = self.visit(node.node)
 		node.args = newArgs
 		return CallFunc(newNode, newArgs)
- 
-	# def visit_CallFunc(self, node):
-	# 	return InjectFrom(self._typeMap['int'], node)
-
+                
 if __name__ == '__main__':
 	import sys
 	import compiler

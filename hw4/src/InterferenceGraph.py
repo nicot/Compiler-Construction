@@ -59,7 +59,7 @@ class InterferenceGraph(object):
 			node.liveSetAfter = lAfter
 			lAfter=node.liveSetBefore
 	def drawEdges(self, myIR):
-		#self.__copylBeforeTolAfter(myIR)
+		self.__copylBeforeTolAfter(myIR)
 		for node in myIR:
 			if isinstance(node, Movl) and node.operandList[1] in node.liveSetAfter:
 				for iterlAfter in node.liveSetAfter:
@@ -138,19 +138,16 @@ class InterferenceGraph(object):
 		for reg in self.__registers:
 			reg.color = [ key for key,value in self.__listColors.items() if value == reg.myRegister ][0]
 		#create priority queue of nodes and iterate
-		#nodesToColor = heappriorityqueue.HeapPriorityQueue(True)
                 toColor = Queue.PriorityQueue()
 		for node in self.__theGraph:
 			if isinstance(node,VarNode):
-				#nodesToColor.add_task(node.calculatePriority(),node)
                                 toColor.put(node)
+
 		while not toColor.empty():
 			adjacentColors = set([])
-			#node = nodesToColor.pop_task()
                         node = toColor.get()
 			#find lowest color not in adjacent nodes (create one if needed -- this would be a stack location)
-			availableColors = self.calcAvailColors(node)
-			
+			availableColors = self.calcAvailColors(node)			
 			if len(availableColors) == 0:
 				#add stack slot (new color)
 				largest_key = len(self.__listColors) + 1  #actually, this is the new key
@@ -163,7 +160,7 @@ class InterferenceGraph(object):
 				node.color = sortedColorsList[0]
 	
 			self.updateSaturation(node)
-			#nodesToColor = self.__rebuildPriorityQueue(nodesToColor)
+
                 self.__ir = self.__reduceDuplicateMoves(self.__ir)
 	def emitColoredIR(self):
 		myString = ""
@@ -191,7 +188,7 @@ class InterferenceGraph(object):
  		previousLiveSet = set()
  		for instruction in reversed(self.__ir):
  			previousLiveSet = instruction.doCalculateLiveSet(previousLiveSet)
-		self.__copylBeforeTolAfter(self.__ir)
+		#self.__copylBeforeTolAfter(self.__ir)
 	def __spillAnalysis(self, ir, alreadySpilled = False):
 		spillFlag = alreadySpilled
 		for instruction in ir:
@@ -214,14 +211,7 @@ class InterferenceGraph(object):
 				ir.insert(ir.index(instruction), newInstruction)	
 			if instruction.numOperands == 2 and isinstance(instruction.operandList[0],VarNode) and isinstance(instruction.operandList[1],VarNode):
 				if instruction.operandList[0].color > self.__regNum and instruction.operandList[1].color > self.__regNum:
-					#insert spill code
-					# if isinstance(instruction, Movl):
-                                        #         secondArg = instruction.operandList[1]
-					# 	instruction.operandList[1] = VarNode(self.makeTmpVar())
-					# 	instruction.operandList[1].spillable = False
-					# 	newInstruction = Movl(instruction.operandList[1],secondArg)
-					# 	ir.insert(ir.index(instruction)+1,newInstruction)
-					# 	spillFlag =  True
+					#insert spill code	
 					if isinstance(instruction, Movl) or isinstance(instruction, Addl) or isinstance(instruction, Cmpl):
 						(spillFlag, newInstruction) = self._makeSpillCode(instruction)
 						spillFlag = True
